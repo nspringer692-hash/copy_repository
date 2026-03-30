@@ -1,2 +1,19 @@
 # cs_128_honors_project
-Temporary template for project might not be kept.
+Group 8 for CS128 Honors
+
+Noah S. (noahds4)
+Daniel M. (dmora59)
+
+Product Intro:
+
+
+Technical Overview:
+
+
+Tech. Overview:
+
+
+Possible Challenges:
+
+
+References:
