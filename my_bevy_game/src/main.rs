@@ -15,6 +15,7 @@ struct DragState {
 struct Gate;
 
 // What gates should we include?
+// different gate types:
 #[derive(Component)]
 enum GateType {
     NAND,
@@ -25,6 +26,7 @@ enum GateType {
     XOR,
     XNOR,
 }
+
 
 #[derive(Component)]
 struct Inputs {
@@ -45,13 +47,12 @@ pub struct CustomPlugin;
 impl Plugin for CustomPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(Update, drag_system);
+        app.(Update, drag_system);
     }
 }
 */
 
 fn main() {
-    //overall startup, creating the app, running throught the assets and running the program.
     App::new() // Create new app
     .insert_resource(DragState::default()) // Crate new global resource to track drag state
     .add_plugins(DefaultPlugins) // Plugins for Bevy game development
