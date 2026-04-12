@@ -4,7 +4,7 @@ Group 8 for CS128 Honors
 Noah S. (noahds4)
 Daniel M. (dmora59)
 
-Ferrum Forge (placeholder): 
+Ferroforge: 
 
 Project Introduction: 
 - For our final project, we will be making a point-and-click puzzle game revolving around solving basic computer architecture logic puzzles. The user will traverse several levels, ranging from constructing the seven fundamental logic gates to creating fundamental logic systems where the goal is to implement a piece of computer hardware from the ground up. 
