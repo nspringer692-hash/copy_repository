@@ -64,6 +64,10 @@ fn main() {
     .run();
 }
 
+//creates the texture of the gates themselves, while using nand.png. Setting these objects
+//in the set coords, for example Vec3::new(-100.0, 0.0, 0.0) is put in the set coords given.
+
+//used in setting up the system *
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
@@ -73,8 +77,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_block(&mut commands, Vec3::new(100.0, 0.0, 0.0), gate_texture.clone()); // Red
     spawn_block(&mut commands, Vec3::new(0.0, 100.0, 0.0), gate_texture.clone()); // Blue
 }
-
+//      ^
+//      |
+//      |
 // Spawn custom objects
+
+
+//Helper function, creates said object
 fn spawn_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
     commands.spawn((
         Sprite {
@@ -107,6 +116,7 @@ fn cursor_to_world(
 }
 
 // Start dragging on click
+//enables the ability to drag objects given
 fn start_drag_system(
     mut drag_state: ResMut<DragState>,
     mouse: Res<ButtonInput<MouseButton>>,
