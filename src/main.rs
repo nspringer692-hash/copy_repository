@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 
 // Components are instance variables per entity in the world
 
@@ -12,7 +13,7 @@ struct DragState {
 }
 
 #[derive(Component)]
-struct Gate;
+struct Gate; // Keep here for now
 
 // What gates should we include?
 #[derive(Component)]
@@ -26,6 +27,7 @@ enum GateType {
     XNOR,
 }
 
+// Each gate will have inputs and outputs
 #[derive(Component)]
 struct Inputs {
     in_a: bool,
@@ -37,26 +39,28 @@ struct Output {
     out: bool,
 }
 
+// List of game states to track for UI transitions
+#[derive(States, Debug, Clone, Eq, PartialEq, Hash, Default)]
+enum GameState {
+    #[default]
+    MainMenu,
+    Editor,
+    Credits,
+}
+
+// Used for snapping to grid
 const GRID_SIZE: f32 = 32.0;
 
-// CustomPlugin: Custom plugin to use for the app
-/* 
-pub struct CustomPlugin;
-impl Plugin for CustomPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup);
-        app.add_systems(Update, drag_system);
-    }
-}
-*/
-
+// Overall startup, creating the app, running throught the assets and running the program.
 fn main() {
-    //overall startup, creating the app, running throught the assets and running the program.
     App::new() // Create new app
-    .insert_resource(DragState::default()) // Crate new global resource to track drag state
+    .insert_resource(DragState::default()) // Create new global resource to track drag state
     .add_plugins(DefaultPlugins) // Plugins for Bevy game development
-    .add_systems(Startup, setup) // Run Setup once
-    .add_systems(Update, ( // Update drag system once per frame / every 60 secs
+    .add_plugins(EguiPlugin::default()) // Plugins for Bevy egui
+    .init_state::<GameState>() // Set initial game state
+    .add_systems(Startup, setup) // Run setup process once
+    .add_systems(EguiPrimaryContextPass, user_interface) // Load user interface
+    .add_systems(Update, ( // Run certain functions once per frame / every 60 secs
         start_drag_system,
         drag_system,
         end_drag_system,
@@ -64,8 +68,95 @@ fn main() {
     .run();
 }
 
-//creates the texture of the gates themselves, while using nand.png. Setting these objects
-//in the set coords, for example Vec3::new(-100.0, 0.0, 0.0) is put in the set coords given.
+
+// Run the UI system for rendering egui menus + state logic
+// Run every frame and depending on whenever a state button is pressed, render different UI
+fn user_interface(
+    mut contexts: EguiContexts, // Give access to egui to draw UI
+    state: Res<State<GameState>>, // Read what state the game is currently in
+    mut next_state: ResMut<NextState<GameState>>, // What state to change to next frame?
+) -> Result {
+    let ctx = contexts.ctx_mut()?; // Get access to bevy_egui's internal state
+
+    match state.get() { // Depending on current state, show a certain window's contents
+        GameState::MainMenu => { // If main menu, show main menu -> transition to other pages
+            egui::CentralPanel::default().show(ctx, |ui| {
+                // LET'S MAKE THIS STUFF BEAUTIFUL
+                ui.label(
+                    egui::RichText::new("Ferroforge")
+                    .size(64.0)
+                    .strong()
+                ); // Set label for the window
+
+                ui.separator(); // Add strikethrough border
+
+                if ui // If Start Editor button pushed
+                    .add_sized([250.0, 80.0], egui::Button::new("Start Editor"))
+                    .clicked()
+                {
+                    next_state.set(GameState::Editor);
+                }
+
+                if ui // If Credits button pushed
+                    .add_sized([250.0, 80.0], egui::Button::new("Credits"))
+                    .clicked()
+                {
+                    next_state.set(GameState::Credits);
+                }
+
+                if ui // If Quit button pushed
+                    .add_sized([250.0, 80.0], egui::Button::new("Quit"))
+                    .clicked()
+                {
+                    std::process::exit(0);
+                }
+            });
+        }
+
+        GameState::Editor => { // If editor, show editor
+            egui::SidePanel::left("Panel").show(ctx, |ui| {
+                if ui.button("Back to Menu").clicked() { // Go back to main menu
+                    next_state.set(GameState::MainMenu);
+                }
+
+                ui.label("Editor Mode"); // Set header as Editor Mode
+            });
+        }
+
+        GameState::Credits => {
+            egui::CentralPanel::default().show(ctx, |ui| {
+                ui.label(
+                    egui::RichText::new("Credits")
+                    .size(100.0)
+                    .strong()
+                ); // Set label for the window
+
+                ui.separator(); // Add strikethrough border
+
+                // Credits text
+                ui.label("Project created by:");
+                ui.label("Noah Springer (noahds4)");
+                ui.label("Daniel Moraga (dmora59)");
+                ui.label("Ferroforge - created for CS128 Honors Project");
+
+                // Button logic
+                if ui
+                    .add_sized([250.0, 80.0], egui::Button::new("Back to Menu"))
+                    .clicked()
+                {
+                    next_state.set(GameState::MainMenu);
+                }
+            });
+        }
+    }
+
+    Ok(())
+}
+
+
+
+// creates the texture of the gates themselves, while using nand.png. Setting these objects
+// in the set coords, for example Vec3::new(-100.0, 0.0, 0.0) is put in the set coords given.
 
 //used in setting up the system *
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -183,15 +274,5 @@ fn end_drag_system(
         drag_state.entity = None;
     }
 }
-
-/* The real work
-fn mouse_position(windows: Query<&Window>) {
-    if let Ok(window) = windows.single() {
-        if let Some(pos) = window.cursor_position() {
-            println!("Cursor at: {:?}", pos);
-        }
-    }
-}
-    */
 
 
