@@ -1,7 +1,16 @@
+use bevy::color::palettes::css::SANDY_BROWN;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 
 // Components are instance variables per entity in the world
+
+#[derive(Resource)]
+struct CurrentStat {
+    input: bool,
+    working_output: bool,
+    output: i32,
+}
 
 // All components used for dragging stuff
 #[derive(Component)]
@@ -57,8 +66,16 @@ fn main() {
     .insert_resource(DragState::default()) // Create new global resource to track drag state
     .add_plugins(DefaultPlugins) // Plugins for Bevy game development
     .add_plugins(EguiPlugin::default()) // Plugins for Bevy egui
+    .insert_resource(CurrentStat {
+        input: false,
+        working_output: false,
+        output: -1,
+    })
+
     .init_state::<GameState>() // Set initial game state
+    .init_resource::<InputFocus>()
     .add_systems(Startup, setup) // Run setup process once
+    .add_systems(Update, button_system)
     .add_systems(EguiPrimaryContextPass, user_interface) // Load user interface
     .add_systems(Update, ( // Run certain functions once per frame / every 60 secs
         start_drag_system,
@@ -67,6 +84,10 @@ fn main() {
     ))
     .run();
 }
+
+const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.35, 0.35);
 
 
 // Run the UI system for rendering egui menus + state logic
@@ -153,7 +174,106 @@ fn user_interface(
     Ok(())
 }
 
+//this button will initialize the input value, whether it is true (1) or false (0) and this will help with testing later
+//may be changed in the future
+fn button_system(
+    mut current_status: ResMut<CurrentStat>,
+    mut input_focus: ResMut<InputFocus>,
+    mut interaction_query: Query<
+        (
+            Entity,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &mut Button,
+            &Children,
+        ),
+        Changed<Interaction>,
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (entity, interaction, mut color, mut border_color, mut button, children) in
+        &mut interaction_query
+    {
+        let mut text = text_query.get_mut(children[0]).unwrap();
 
+
+        match *interaction {
+            Interaction::Pressed => {
+                input_focus.set(entity);
+                **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                *border_color = BorderColor::all(SANDY_BROWN);
+                current_status.input = !current_status.input;
+                if current_status.input {
+                    println!("1");
+                } else {
+                    println!("0");
+                }
+
+
+                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
+            }
+            Interaction::Hovered => {
+                input_focus.set(entity);
+                **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                *border_color = BorderColor::all(Color::WHITE);
+                button.set_changed();
+            }
+            Interaction::None => {
+                input_focus.clear();
+                **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                *border_color = BorderColor::all(Color::BLACK);
+            }
+        }
+    }
+}
+
+
+
+//use this function to make a button that can be placed in the x_pos, and set its size
+fn button(asset_server: &AssetServer, x_pos: f32, y_pos: f32, width: u32, height: u32) -> impl Bundle {
+    (
+        Node {
+            width: percent(100),
+            height: percent(100),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        children![(
+            Button,
+            Node {
+                bottom: px(y_pos),
+                right: px(x_pos),
+                width: px(width),
+                height: px(height),
+                border: UiRect::all(px(5)),
+                // horizontally center child text
+                justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
+                border_radius: BorderRadius::MAX,
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            BackgroundColor(Color::BLACK),
+            children![(
+                Text::new("Button"),
+                TextFont {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                TextShadow::default(),
+            )]
+        )],
+    )
+}
 
 // creates the texture of the gates themselves, while using nand.png. Setting these objects
 // in the set coords, for example Vec3::new(-100.0, 0.0, 0.0) is put in the set coords given.
@@ -161,7 +281,7 @@ fn user_interface(
 //used in setting up the system *
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
-
+    commands.spawn(button(&asset_server, 450.0, 320.0, 125, 60));
     let gate_texture: Handle<Image> = asset_server.load("textures/nand.png");
 
     spawn_block(&mut commands, Vec3::new(-100.0, 0.0, 0.0), gate_texture.clone()); // Green
@@ -174,7 +294,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 // Spawn custom objects
 
 
-//Helper function, creates said object
+//Helper function, creates said object, a movable gate, usually.
 fn spawn_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
     commands.spawn((
         Sprite {
@@ -184,6 +304,20 @@ fn spawn_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
         },
         Transform::from_translation(pos),
         Draggable,
+    ));
+}
+
+//spawns a stable block, or a block that can't be moved
+fn spawn_stable_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
+    commands.spawn((
+        Sprite {
+            image: texture,
+            custom_size: Some(Vec2::splat(100.0)),
+            ..default()
+        },
+        Transform::from_translation(pos),
+        // Use a system to handle pickable interactions instead of trying to attach
+        // a callback here (the `On::<Pointer<Click>>::run` API is not available).
     ));
 }
 
@@ -274,5 +408,24 @@ fn end_drag_system(
         drag_state.entity = None;
     }
 }
+
+//logic gate (placeholder functions)
+fn not_gate(input: bool) -> Output {
+    Output { out: !input }
+}
+
+
+fn int_and_out(input: Inputs, gate: GateType) -> Output {
+    match gate {
+        GateType::AND => return Output { out: input.in_a && input.in_b },
+        GateType::NAND => return Output { out: !input.in_a || !input.in_b },
+        GateType::NOR => return Output { out: !input.in_a && !input.in_b },
+        GateType::OR => return Output { out: input.in_a || input.in_b },
+        GateType::XNOR => return Output { out: input.in_a == input.in_b },
+        GateType::XOR => return Output { out: input.in_a != input.in_b },
+        _ => panic!("not including NOT"),
+    }
+}
+
 
 
