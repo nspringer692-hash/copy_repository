@@ -3,6 +3,12 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiPrimaryContextPass};
 use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 
+pub mod gate;
+pub mod circuit;
+
+use gate::{Gate, GateType};
+use circuit::Circuit;
+
 // Components are instance variables per entity in the world
 
 #[derive(Resource)]
@@ -21,20 +27,8 @@ struct DragState {
     entity: Option<Entity>,
 }
 
-#[derive(Component)]
-struct Gate; // Keep here for now
 
-// What gates should we include?
-#[derive(Component)]
-enum GateType {
-    NAND,
-    NOR,
-    AND,
-    OR,
-    NOT,
-    XOR,
-    XNOR,
-}
+
 
 // Each gate will have inputs and outputs
 #[derive(Component)]
@@ -410,22 +404,21 @@ fn end_drag_system(
 }
 
 //logic gate (placeholder functions)
-fn not_gate(input: bool) -> Output {
-    Output { out: !input }
-}
+// fn not_gate(input: bool) -> Output {
+//     Output { out: !input }
+// }
 
 
-fn int_and_out(input: Inputs, gate: GateType) -> Output {
-    match gate {
-        GateType::AND => return Output { out: input.in_a && input.in_b },
-        GateType::NAND => return Output { out: !input.in_a || !input.in_b },
-        GateType::NOR => return Output { out: !input.in_a && !input.in_b },
-        GateType::OR => return Output { out: input.in_a || input.in_b },
-        GateType::XNOR => return Output { out: input.in_a == input.in_b },
-        GateType::XOR => return Output { out: input.in_a != input.in_b },
-        _ => panic!("not including NOT"),
-    }
-}
-
+// fn int_and_out(input: Inputs, gate: GateType) -> Output {
+//     match gate {
+//         GateType::AND => return Output { out: input.in_a && input.in_b },
+//         GateType::NAND => return Output { out: !input.in_a || !input.in_b },
+//         GateType::NOR => return Output { out: !input.in_a && !input.in_b },
+//         GateType::OR => return Output { out: input.in_a || input.in_b },
+//         GateType::XNOR => return Output { out: input.in_a == input.in_b },
+//         GateType::XOR => return Output { out: input.in_a != input.in_b },
+//         _ => panic!("not including NOT"),
+//     }
+// }
 
 
