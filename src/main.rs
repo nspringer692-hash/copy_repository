@@ -62,7 +62,7 @@ enum GameState {
 }
 
 // Used for snapping to grid
-const GRID_SIZE: f32 = 32.0;
+const GRID_SIZE: f32 = 16.0;
 
 // Overall startup, creating the app, running throught the assets and running the program.
 fn main() {
@@ -86,6 +86,7 @@ fn main() {
         drag_system,
         end_drag_system,
         handle_spawn_gate,
+        delete_on_right_click,
     ))
     .add_message::<SpawnGateEvent>()
     .run();
@@ -273,7 +274,37 @@ fn button_system(
     }
 }
 
+// Visual grid for workspace
+fn spawn_grid(commands: &mut Commands) {
+    let spacing = 16.0;
+    let half_size = 2000.0;
 
+    let mut x = -half_size;
+    while x <= half_size {
+        commands.spawn((
+            Sprite {
+                color: Color::srgba(0.2, 0.2, 0.2, 0.3),
+                custom_size: Some(Vec2::new(1.0, half_size * 2.0)),
+                ..default()
+            },
+            Transform::from_xyz(x, 0.0, -10.0),
+        ));
+        x += spacing;
+    }
+
+    let mut y = -half_size;
+    while y <= half_size {
+        commands.spawn((
+            Sprite {
+                color: Color::srgba(0.2, 0.2, 0.2, 0.3),
+                custom_size: Some(Vec2::new(half_size * 2.0, 1.0)),
+                ..default()
+            },
+            Transform::from_xyz(0.0, y, -10.0),
+        ));
+        y += spacing;
+    }
+}
 
 //use this function to make a button that can be placed in the x_pos, and set its size
 fn button(asset_server: &AssetServer, x_pos: f32, y_pos: f32, width: u32, height: u32) -> impl Bundle {
@@ -350,6 +381,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn(button(&asset_server, 450.0, 320.0, 125, 60));
     let gate_texture: Handle<Image> = asset_server.load("textures/nand.png");
+    spawn_grid(&mut commands);
 
     // Store as a resource
     commands.insert_resource(GateTexture {
@@ -368,15 +400,53 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 //Helper function, creates said object, a movable gate, usually.
 fn spawn_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
+
+    // Snap the position of this object to the grid
+    let snapped = Vec3::new(
+        snap_to_grid(pos.x),
+        snap_to_grid(pos.y),
+        pos.z,
+    );
     commands.spawn((
         Sprite {
             image: texture,
             custom_size: Some(Vec2::splat(100.0)),
             ..default()
         },
-        Transform::from_translation(pos),
+        Transform::from_translation(snapped),
         Draggable,
     ));
+}
+
+// Delete a block whenever hovering and right click is pressed
+fn delete_on_right_click(
+    mut commands: Commands, // Needed to run despawn entity
+    mouse: Res<ButtonInput<MouseButton>>, // Read mouse's input
+    windows: Query<&Window>, 
+    cameras: Query<(&Camera, &GlobalTransform)>,
+    query: Query<(Entity, &Transform), With<Draggable>>,
+) {
+    // If mouse is not right clicking, ignore
+    if !mouse.just_pressed(MouseButton::Right) {
+        return;
+    }
+
+    // Get cursor position
+    let Some(cursor_pos) = cursor_to_world(&windows, &cameras) else {
+        return;
+    };
+
+    // Loop through each entity in the world
+    for (entity, transform) in &query {
+        // Get the distance from the entity
+        let dist = transform.translation.truncate().distance(cursor_pos);
+
+        // If this entity is the closest to the mouse, delete it
+        if dist < 50.0 {
+            commands.entity(entity).despawn();
+            break; // delete only one
+        }
+    }
 }
 
 //spawns a stable block, or a block that can't be moved
