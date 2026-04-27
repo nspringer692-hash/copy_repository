@@ -151,7 +151,7 @@ fn user_interface(
                 ui.label("Editor Mode"); // Set header as Editor Mode
             });
             egui::Window::new("Components").show(ctx, |ui| {
-
+                let mut current_level = crate::circuit::Circuit::new(0, 5);
                 if ui // NAND
                     .add_sized([60.0, 30.0], egui::Button::new("NAND"))
                     .clicked()
@@ -160,13 +160,23 @@ fn user_interface(
                         position: Vec3::new(-80.0, 0.0, 0.0),
                         gate_type: GateType::NAND,
                     });
+                    current_level.add_gate(GateType::NAND);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
+                    
                 }
 
                 if ui // NOR
                     .add_sized([60.0, 30.0], egui::Button::new("NOR"))
                     .clicked()
                 {
+
                     println!("Request NOR gate");
+                    current_level.add_gate(GateType::NOR);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
                 }
 
                 if ui // AND
@@ -174,6 +184,10 @@ fn user_interface(
                     .clicked()
                 {
                     println!("Request AND gate");
+                    current_level.add_gate(GateType::NAND);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
                 }
 
                 if ui // OR
@@ -181,6 +195,11 @@ fn user_interface(
                     .clicked()
                 {
                     println!("Request OR gate");
+                    current_level.add_gate(GateType::OR);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
+
                 }
             });
         }
@@ -272,8 +291,6 @@ fn button_system(
         }
     }
 }
-
-
 
 //use this function to make a button that can be placed in the x_pos, and set its size
 fn button(asset_server: &AssetServer, x_pos: f32, y_pos: f32, width: u32, height: u32) -> impl Bundle {
