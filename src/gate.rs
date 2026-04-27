@@ -1,10 +1,13 @@
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use bevy::prelude::*;
 
-static GLOBAL_ID: Mutex<i32> = Mutex::new(0);
+
+pub static GLOBAL_ID: Mutex<i32> = Mutex::new(0);
+
 
 //all the type of gates
 #[derive(Component)]
+#[derive(Debug)]
 pub enum GateType {
     NAND,
     NOR,
@@ -15,14 +18,18 @@ pub enum GateType {
     XNOR,
 }
 
+
 //the Gate struct determines all the values in a logic gate, and determines what to do with each gate when utilized.
+
 #[derive(Component)]
+#[derive(Debug)]
 pub struct Gate {
     pub kind: GateType,
     pub input_states: Vec<bool>,
     pub output: bool,
     pub id: i32,
 }
+
 
 impl Gate {
     //create a new gete, this can be used when a gate is dragged into the "field"

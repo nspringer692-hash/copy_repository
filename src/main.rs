@@ -152,7 +152,7 @@ fn user_interface(
                 ui.label("Editor Mode"); // Set header as Editor Mode
             });
             egui::Window::new("Components").show(ctx, |ui| {
-
+                let mut current_level = crate::circuit::Circuit::new(0, 5);
                 if ui // NAND
                     .add_sized([60.0, 30.0], egui::Button::new("NAND"))
                     .clicked()
@@ -161,13 +161,23 @@ fn user_interface(
                         position: Vec3::new(-80.0, 0.0, 0.0),
                         gate_type: GateType::NAND,
                     });
+                    current_level.add_gate(GateType::NAND);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
+                    
                 }
 
                 if ui // NOR
                     .add_sized([60.0, 30.0], egui::Button::new("NOR"))
                     .clicked()
                 {
+
                     println!("Request NOR gate");
+                    current_level.add_gate(GateType::NOR);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
                 }
 
                 if ui // AND
@@ -175,6 +185,10 @@ fn user_interface(
                     .clicked()
                 {
                     println!("Request AND gate");
+                    current_level.add_gate(GateType::NAND);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
                 }
 
                 if ui // OR
@@ -182,6 +196,11 @@ fn user_interface(
                     .clicked()
                 {
                     println!("Request OR gate");
+                    current_level.add_gate(GateType::OR);
+                    for i in 0..current_level.gates.len() {
+                        println!("{:?}", current_level.gates[i]);
+                    }
+
                 }
             });
         }
@@ -271,38 +290,6 @@ fn button_system(
                 *border_color = BorderColor::all(Color::BLACK);
             }
         }
-    }
-}
-
-// Visual grid for workspace
-fn spawn_grid(commands: &mut Commands) {
-    let spacing = 16.0;
-    let half_size = 2000.0;
-
-    let mut x = -half_size;
-    while x <= half_size {
-        commands.spawn((
-            Sprite {
-                color: Color::srgba(0.2, 0.2, 0.2, 0.3),
-                custom_size: Some(Vec2::new(1.0, half_size * 2.0)),
-                ..default()
-            },
-            Transform::from_xyz(x, 0.0, -10.0),
-        ));
-        x += spacing;
-    }
-
-    let mut y = -half_size;
-    while y <= half_size {
-        commands.spawn((
-            Sprite {
-                color: Color::srgba(0.2, 0.2, 0.2, 0.3),
-                custom_size: Some(Vec2::new(half_size * 2.0, 1.0)),
-                ..default()
-            },
-            Transform::from_xyz(0.0, y, -10.0),
-        ));
-        y += spacing;
     }
 }
 
@@ -396,6 +383,38 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 //      |
 //      |
 // Spawn custom objects
+
+// Visual grid for workspace
+fn spawn_grid(commands: &mut Commands) {
+    let spacing = 16.0;
+    let half_size = 2000.0;
+
+    let mut x = -half_size;
+    while x <= half_size {
+        commands.spawn((
+            Sprite {
+                color: Color::srgba(0.2, 0.2, 0.2, 0.3),
+                custom_size: Some(Vec2::new(1.0, half_size * 2.0)),
+                ..default()
+            },
+            Transform::from_xyz(x, 0.0, -10.0),
+        ));
+        x += spacing;
+    }
+
+    let mut y = -half_size;
+    while y <= half_size {
+        commands.spawn((
+            Sprite {
+                color: Color::srgba(0.2, 0.2, 0.2, 0.3),
+                custom_size: Some(Vec2::new(half_size * 2.0, 1.0)),
+                ..default()
+            },
+            Transform::from_xyz(0.0, y, -10.0),
+        ));
+        y += spacing;
+    }
+}
 
 
 //Helper function, creates said object, a movable gate, usually.
