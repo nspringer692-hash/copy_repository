@@ -18,6 +18,11 @@ struct CurrentStat {
     output: i32,
 }
 
+#[derive(Resource)]
+struct GateTexture {
+    texture: Handle<Image>,
+}
+
 // All components used for dragging stuff
 #[derive(Component)]
 struct Draggable;
@@ -26,8 +31,6 @@ struct Draggable;
 struct DragState {
     entity: Option<Entity>,
 }
-
-
 
 
 // Each gate will have inputs and outputs
@@ -40,6 +43,13 @@ struct Inputs {
 #[derive(Component)]
 struct Output {
     out: bool,
+}
+
+// Events are instances in Bevy that do something in that event (word bad)
+#[derive(Message)]
+struct SpawnGateEvent {
+    position: Vec3,
+    gate_type: GateType,
 }
 
 // List of game states to track for UI transitions
@@ -75,7 +85,9 @@ fn main() {
         start_drag_system,
         drag_system,
         end_drag_system,
+        handle_spawn_gate,
     ))
+    .add_message::<SpawnGateEvent>()
     .run();
 }
 
@@ -90,6 +102,7 @@ fn user_interface(
     mut contexts: EguiContexts, // Give access to egui to draw UI
     state: Res<State<GameState>>, // Read what state the game is currently in
     mut next_state: ResMut<NextState<GameState>>, // What state to change to next frame?
+    mut message_writer: MessageWriter<SpawnGateEvent>
 ) -> Result {
     let ctx = contexts.ctx_mut()?; // Get access to bevy_egui's internal state
 
@@ -133,8 +146,42 @@ fn user_interface(
                 if ui.button("Back to Menu").clicked() { // Go back to main menu
                     next_state.set(GameState::MainMenu);
                 }
+                
 
                 ui.label("Editor Mode"); // Set header as Editor Mode
+            });
+            egui::Window::new("Components").show(ctx, |ui| {
+
+                if ui // NAND
+                    .add_sized([60.0, 30.0], egui::Button::new("NAND"))
+                    .clicked()
+                {
+                    message_writer.write(SpawnGateEvent {
+                        position: Vec3::new(-80.0, 0.0, 0.0),
+                        gate_type: GateType::NAND,
+                    });
+                }
+
+                if ui // NOR
+                    .add_sized([60.0, 30.0], egui::Button::new("NOR"))
+                    .clicked()
+                {
+                    println!("Request NOR gate");
+                }
+
+                if ui // AND
+                    .add_sized([60.0, 30.0], egui::Button::new("AND"))
+                    .clicked()
+                {
+                    println!("Request AND gate");
+                }
+
+                if ui // OR
+                    .add_sized([60.0, 30.0], egui::Button::new("OR"))
+                    .clicked()
+                {
+                    println!("Request OR gate");
+                }
             });
         }
 
@@ -269,6 +316,32 @@ fn button(asset_server: &AssetServer, x_pos: f32, y_pos: f32, width: u32, height
     )
 }
 
+fn handle_spawn_gate(
+    mut commands: Commands,
+    mut events: MessageReader<SpawnGateEvent>,
+    gate_texture: Res<GateTexture>
+) {
+    for event in events.read() {
+        match event.gate_type {
+            GateType::NAND => {
+                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
+            }
+            GateType::NOR => {
+                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
+            }
+            GateType::AND => {
+                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
+            }
+            GateType::OR => {
+                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
+            }
+            _ => {
+                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
+            }
+        }
+    }
+}
+
 // creates the texture of the gates themselves, while using nand.png. Setting these objects
 // in the set coords, for example Vec3::new(-100.0, 0.0, 0.0) is put in the set coords given.
 
@@ -277,6 +350,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn(button(&asset_server, 450.0, 320.0, 125, 60));
     let gate_texture: Handle<Image> = asset_server.load("textures/nand.png");
+
+    // Store as a resource
+    commands.insert_resource(GateTexture {
+        texture: gate_texture.clone(),
+    });
 
     spawn_block(&mut commands, Vec3::new(-100.0, 0.0, 0.0), gate_texture.clone()); // Green
     spawn_block(&mut commands, Vec3::new(100.0, 0.0, 0.0), gate_texture.clone()); // Red
