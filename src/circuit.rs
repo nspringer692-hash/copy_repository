@@ -54,7 +54,23 @@ impl Circuit {
         }
     }
 
+    
     pub fn connect_gates(&mut self, from: Gate, to: Gate) {
     
+        let from_id: usize = from.id as usize;
+        let to_id: usize = to.id as usize;
+        for i in (0..self.graph.len()) {
+            if self.graph[i][0] == Some(from_id) {
+                for value in 0..self.graph[i].len() {
+                    if self.graph[i][value] == None {
+                        self.graph[i][value] = Some(to_id);
+                        return;
+                    }
+                }
+            }
+        }
     }
 }
+
+#[derive(Resource)]
+pub struct ActiveCircuit(pub crate::circuit::Circuit);

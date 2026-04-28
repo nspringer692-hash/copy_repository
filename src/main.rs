@@ -8,6 +8,7 @@ pub mod circuit;
 
 use gate::{Gate, GateType};
 use circuit::Circuit;
+use crate::circuit::ActiveCircuit;
 
 // Components are instance variables per entity in the world
 
@@ -67,6 +68,7 @@ const GRID_SIZE: f32 = 16.0;
 // Overall startup, creating the app, running throught the assets and running the program.
 fn main() {
     App::new() // Create new app
+    .insert_resource(ActiveCircuit(crate::circuit::Circuit::new(0, 5)))
     .insert_resource(DragState::default()) // Create new global resource to track drag state
     .add_plugins(DefaultPlugins) // Plugins for Bevy game development
     .add_plugins(EguiPlugin::default()) // Plugins for Bevy egui
@@ -101,12 +103,13 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.35, 0.35);
 // Run every frame and depending on whenever a state button is pressed, render different UI
 fn user_interface(
     mut contexts: EguiContexts, // Give access to egui to draw UI
+    mut active_circuit: ResMut<ActiveCircuit>, // This is the current circuit (or level)
     state: Res<State<GameState>>, // Read what state the game is currently in
     mut next_state: ResMut<NextState<GameState>>, // What state to change to next frame?
     mut message_writer: MessageWriter<SpawnGateEvent>
 ) -> Result {
     let ctx = contexts.ctx_mut()?; // Get access to bevy_egui's internal state
-
+    let current_level = &mut active_circuit.0;
     match state.get() { // Depending on current state, show a certain window's contents
         GameState::MainMenu => { // If main menu, show main menu -> transition to other pages
             egui::CentralPanel::default().show(ctx, |ui| {
@@ -152,7 +155,7 @@ fn user_interface(
                 ui.label("Editor Mode"); // Set header as Editor Mode
             });
             egui::Window::new("Components").show(ctx, |ui| {
-                let mut current_level = crate::circuit::Circuit::new(0, 5);
+                
                 if ui // NAND
                     .add_sized([60.0, 30.0], egui::Button::new("NAND"))
                     .clicked()
