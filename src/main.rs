@@ -5,10 +5,14 @@ use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
 
 pub mod gate;
 pub mod circuit;
+pub mod block;
+
 
 use gate::{Gate, GateType};
 use circuit::Circuit;
 use crate::circuit::ActiveCircuit;
+use crate::block::BlockBundle;
+use crate::gate::GLOBAL_ID;
 
 // Components are instance variables per entity in the world
 
@@ -25,7 +29,7 @@ struct GateTexture {
 }
 
 // All components used for dragging stuff
-#[derive(Component)]
+#[derive(Component, Default)]
 struct Draggable;
 
 #[derive(Resource, Default)]
@@ -66,6 +70,7 @@ enum GameState {
 const GRID_SIZE: f32 = 16.0;
 
 // Overall startup, creating the app, running throught the assets and running the program.
+// Gives all the initial values that may be needed, for example the current level will be staged on setup and once the program is run
 fn main() {
     App::new() // Create new app
     .insert_resource(ActiveCircuit(crate::circuit::Circuit::new(0, 5)))
@@ -106,7 +111,9 @@ fn user_interface(
     mut active_circuit: ResMut<ActiveCircuit>, // This is the current circuit (or level)
     state: Res<State<GameState>>, // Read what state the game is currently in
     mut next_state: ResMut<NextState<GameState>>, // What state to change to next frame?
-    mut message_writer: MessageWriter<SpawnGateEvent>
+    mut message_writer: MessageWriter<SpawnGateEvent>,
+    mut commands: Commands, 
+    gate_texture: Res<GateTexture>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?; // Get access to bevy_egui's internal state
     let current_level = &mut active_circuit.0;
@@ -155,7 +162,11 @@ fn user_interface(
                 ui.label("Editor Mode"); // Set header as Editor Mode
             });
             egui::Window::new("Components").show(ctx, |ui| {
-                
+                let pos = Vec3::new(-80.0, 0.0, 0.0);
+                let global = {
+                    let guard = GLOBAL_ID.lock().unwrap();
+                    *guard // The lock is released right after this closing brace
+                };
                 if ui // NAND
                     .add_sized([60.0, 30.0], egui::Button::new("NAND"))
                     .clicked()
@@ -164,6 +175,7 @@ fn user_interface(
                         position: Vec3::new(-80.0, 0.0, 0.0),
                         gate_type: GateType::NAND,
                     });
+                    commands.spawn(BlockBundle::new(pos, gate_texture.texture.clone(), global));
                     current_level.add_gate(GateType::NAND);
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
@@ -175,8 +187,11 @@ fn user_interface(
                     .add_sized([60.0, 30.0], egui::Button::new("NOR"))
                     .clicked()
                 {
-
-                    println!("Request NOR gate");
+                    message_writer.write(SpawnGateEvent {
+                        position: Vec3::new(-80.0, 0.0, 0.0),
+                        gate_type: GateType::NOR,
+                    });
+                    commands.spawn(BlockBundle::new(pos, gate_texture.texture.clone(), global));
                     current_level.add_gate(GateType::NOR);
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
@@ -187,8 +202,12 @@ fn user_interface(
                     .add_sized([60.0, 30.0], egui::Button::new("AND"))
                     .clicked()
                 {
-                    println!("Request AND gate");
-                    current_level.add_gate(GateType::NAND);
+                    message_writer.write(SpawnGateEvent {
+                        position: Vec3::new(-80.0, 0.0, 0.0),
+                        gate_type: GateType::AND,
+                    });
+                    commands.spawn(BlockBundle::new(pos, gate_texture.texture.clone(), global));
+                    current_level.add_gate(GateType::AND);
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
                     }
@@ -198,7 +217,11 @@ fn user_interface(
                     .add_sized([60.0, 30.0], egui::Button::new("OR"))
                     .clicked()
                 {
-                    println!("Request OR gate");
+                    message_writer.write(SpawnGateEvent {
+                        position: Vec3::new(-80.0, 0.0, 0.0),
+                        gate_type: GateType::OR,
+                    });
+                    commands.spawn(BlockBundle::new(pos, gate_texture.texture.clone(), global));
                     current_level.add_gate(GateType::OR);
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
@@ -344,20 +367,8 @@ fn handle_spawn_gate(
 ) {
     for event in events.read() {
         match event.gate_type {
-            GateType::NAND => {
-                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
-            }
-            GateType::NOR => {
-                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
-            }
-            GateType::AND => {
-                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
-            }
-            GateType::OR => {
-                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
-            }
+            
             _ => {
-                spawn_block(&mut commands, event.position, gate_texture.texture.clone());
             }
         }
     }
@@ -378,14 +389,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         texture: gate_texture.clone(),
     });
 
-    spawn_block(&mut commands, Vec3::new(-100.0, 0.0, 0.0), gate_texture.clone()); // Green
-    spawn_block(&mut commands, Vec3::new(100.0, 0.0, 0.0), gate_texture.clone()); // Red
-    spawn_block(&mut commands, Vec3::new(0.0, 100.0, 0.0), gate_texture.clone()); // Blue
 }
-//      ^
-//      |
-//      |
-// Spawn custom objects
+
 
 // Visual grid for workspace
 fn spawn_grid(commands: &mut Commands) {
@@ -420,26 +425,6 @@ fn spawn_grid(commands: &mut Commands) {
 }
 
 
-//Helper function, creates said object, a movable gate, usually.
-fn spawn_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
-
-    // Snap the position of this object to the grid
-    let snapped = Vec3::new(
-        snap_to_grid(pos.x),
-        snap_to_grid(pos.y),
-        pos.z,
-    );
-    commands.spawn((
-        Sprite {
-            image: texture,
-            custom_size: Some(Vec2::splat(100.0)),
-            ..default()
-        },
-        Transform::from_translation(snapped),
-        Draggable,
-    ));
-}
-
 // Delete a block whenever hovering and right click is pressed
 fn delete_on_right_click(
     mut commands: Commands, // Needed to run despawn entity
@@ -471,19 +456,6 @@ fn delete_on_right_click(
     }
 }
 
-//spawns a stable block, or a block that can't be moved
-fn spawn_stable_block(commands: &mut Commands, pos: Vec3, texture: Handle<Image>) {
-    commands.spawn((
-        Sprite {
-            image: texture,
-            custom_size: Some(Vec2::splat(100.0)),
-            ..default()
-        },
-        Transform::from_translation(pos),
-        // Use a system to handle pickable interactions instead of trying to attach
-        // a callback here (the `On::<Pointer<Click>>::run` API is not available).
-    ));
-}
 
 // Work
 // Convert cursor to world position
@@ -572,23 +544,3 @@ fn end_drag_system(
         drag_state.entity = None;
     }
 }
-
-//logic gate (placeholder functions)
-// fn not_gate(input: bool) -> Output {
-//     Output { out: !input }
-// }
-
-
-// fn int_and_out(input: Inputs, gate: GateType) -> Output {
-//     match gate {
-//         GateType::AND => return Output { out: input.in_a && input.in_b },
-//         GateType::NAND => return Output { out: !input.in_a || !input.in_b },
-//         GateType::NOR => return Output { out: !input.in_a && !input.in_b },
-//         GateType::OR => return Output { out: input.in_a || input.in_b },
-//         GateType::XNOR => return Output { out: input.in_a == input.in_b },
-//         GateType::XOR => return Output { out: input.in_a != input.in_b },
-//         _ => panic!("not including NOT"),
-//     }
-// }
-
-
