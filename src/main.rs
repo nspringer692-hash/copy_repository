@@ -11,7 +11,7 @@ pub mod block;
 use gate::{Gate, GateType};
 use circuit::Circuit;
 use crate::circuit::ActiveCircuit;
-use crate::block::BlockBundle;
+use crate::block::{BlockBundle, GateId};
 use crate::gate::GLOBAL_ID;
 
 // Components are instance variables per entity in the world
@@ -73,7 +73,7 @@ const GRID_SIZE: f32 = 16.0;
 // Gives all the initial values that may be needed, for example the current level will be staged on setup and once the program is run
 fn main() {
     App::new() // Create new app
-    .insert_resource(ActiveCircuit(crate::circuit::Circuit::new(0, 5)))
+    .insert_resource(ActiveCircuit(crate::circuit::Circuit::new(0, 0)))
     .insert_resource(DragState::default()) // Create new global resource to track drag state
     .add_plugins(DefaultPlugins) // Plugins for Bevy game development
     .add_plugins(EguiPlugin::default()) // Plugins for Bevy egui
@@ -92,8 +92,8 @@ fn main() {
         start_drag_system,
         drag_system,
         end_drag_system,
-        handle_spawn_gate,
         delete_on_right_click,
+        process_circuit_simulation,
     ))
     .add_message::<SpawnGateEvent>()
     .run();
@@ -162,6 +162,8 @@ fn user_interface(
                 ui.label("Editor Mode"); // Set header as Editor Mode
             });
             egui::Window::new("Components").show(ctx, |ui| {
+                // here, the pos is the location that the gate will spawn in and global
+                // is the current id that the spawned block will be
                 let pos = Vec3::new(-80.0, 0.0, 0.0);
                 let global = {
                     let guard = GLOBAL_ID.lock().unwrap();
@@ -175,11 +177,16 @@ fn user_interface(
                         position: Vec3::new(-80.0, 0.0, 0.0),
                         gate_type: GateType::NAND,
                     });
+                    //spawning in the block and adding the gate to the circuit, continued for all gate types
                     commands.spawn(BlockBundle::new(pos, gate_texture.texture.clone(), global));
                     current_level.add_gate(GateType::NAND);
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
                     }
+                    println!("/////////");
+                    println!("current graph:");
+                    println!("{:?}", current_level.graph);
+                    println!("/////////");
                     
                 }
 
@@ -196,6 +203,10 @@ fn user_interface(
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
                     }
+                    println!("/////////");
+                    println!("current graph:");
+                    println!("{:?}", current_level.graph);
+                    println!("/////////");
                 }
 
                 if ui // AND
@@ -211,6 +222,10 @@ fn user_interface(
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
                     }
+                    println!("/////////");
+                    println!("current graph:");
+                    println!("{:?}", current_level.graph);
+                    println!("/////////");
                 }
 
                 if ui // OR
@@ -226,6 +241,10 @@ fn user_interface(
                     for i in 0..current_level.gates.len() {
                         println!("{:?}", current_level.gates[i]);
                     }
+                    println!("/////////");
+                    println!("current graph:");
+                    println!("{:?}", current_level.graph);
+                    println!("/////////");
 
                 }
             });
@@ -360,19 +379,19 @@ fn button(asset_server: &AssetServer, x_pos: f32, y_pos: f32, width: u32, height
     )
 }
 
-fn handle_spawn_gate(
-    mut commands: Commands,
-    mut events: MessageReader<SpawnGateEvent>,
-    gate_texture: Res<GateTexture>
-) {
-    for event in events.read() {
-        match event.gate_type {
+// fn handle_spawn_gate(
+//     mut commands: Commands,
+//     mut events: MessageReader<SpawnGateEvent>,
+//     gate_texture: Res<GateTexture>
+// ) {
+//     for event in events.read() {
+//         match event.gate_type {
             
-            _ => {
-            }
-        }
-    }
-}
+//             _ => {
+//             }
+//         }
+//     }
+// }
 
 // creates the texture of the gates themselves, while using nand.png. Setting these objects
 // in the set coords, for example Vec3::new(-100.0, 0.0, 0.0) is put in the set coords given.
@@ -426,12 +445,14 @@ fn spawn_grid(commands: &mut Commands) {
 
 
 // Delete a block whenever hovering and right click is pressed
+// This should also maintain gates and keep track of the amount and which gates are "active"
 fn delete_on_right_click(
     mut commands: Commands, // Needed to run despawn entity
     mouse: Res<ButtonInput<MouseButton>>, // Read mouse's input
     windows: Query<&Window>, 
     cameras: Query<(&Camera, &GlobalTransform)>,
-    query: Query<(Entity, &Transform), With<Draggable>>,
+    query: Query<(Entity, &Transform, &GateId), With<Draggable>>,
+    mut active_circuit: ResMut<ActiveCircuit>,
 ) {
     // If mouse is not right clicking, ignore
     if !mouse.just_pressed(MouseButton::Right) {
@@ -442,20 +463,33 @@ fn delete_on_right_click(
     let Some(cursor_pos) = cursor_to_world(&windows, &cameras) else {
         return;
     };
-
     // Loop through each entity in the world
-    for (entity, transform) in &query {
+    // This loop goes through until it finds an entity < 50 in distance and deletes it, only one, though
+    for (entity, transform, gate_id) in &query {
         // Get the distance from the entity
+        
         let dist = transform.translation.truncate().distance(cursor_pos);
 
         // If this entity is the closest to the mouse, delete it
         if dist < 50.0 {
+            // Once the entity that has been found, the process of deletion is started, taking a gate and deleting it.
+            // This is done by getting the id of the gate, and deleting based on that id, after which the visuals for
+            // the item are removed.                  |
+            //                                        v .0 is just the value given (inside the 1-value tuple)
+            active_circuit.0.remove_gate(gate_id.0);
+            println!("{:?}", active_circuit.0.graph);
             commands.entity(entity).despawn();
+            // for i in 0..active_circuit.0.gates.len() {
+            //     println!("{:?}", active_circuit.0.gates[i]);
+            // }
             break; // delete only one
         }
     }
 }
 
+fn process_circuit_simulation(mut active_circuit: ResMut<ActiveCircuit>) {
+    let circuit = &mut active_circuit.0;
+}
 
 // Work
 // Convert cursor to world position
